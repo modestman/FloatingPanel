@@ -730,6 +730,8 @@ class TabBarContentViewController: UIViewController, FloatingPanelControllerDele
     var fpc: FloatingPanelController!
     var consoleVC: DebugTextViewController!
 
+    var threeLayout: ThreeTabBarPanelLayout = ThreeTabBarPanelLayout()
+
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         // Initialize FloatingPanelController
@@ -763,7 +765,7 @@ class TabBarContentViewController: UIViewController, FloatingPanelControllerDele
         case 1:
             return TwoTabBarPanelLayout()
         case 2:
-            return ThreeTabBarPanelLayout()
+            return threeLayout
         default:
             return nil
         }
@@ -784,7 +786,7 @@ class TabBarContentViewController: UIViewController, FloatingPanelControllerDele
         scrollView.contentInset = insets
          */
 
-        // Solution 2: Manipulate top constraint
+        /* Solution 2: Manipulate top constraint */
         assert(consoleVC.textViewTopConstraint != nil)
         if vc.surfaceView.frame.minY + 17.0 < vc.layoutInsets.top {
             consoleVC.textViewTopConstraint?.constant = vc.layoutInsets.top - vc.surfaceView.frame.minY
@@ -792,6 +794,16 @@ class TabBarContentViewController: UIViewController, FloatingPanelControllerDele
             consoleVC.textViewTopConstraint?.constant = 17.0
         }
         consoleVC.view.layoutIfNeeded()
+
+        if vc.surfaceView.frame.minY > vc.originYOfSurface(for: .half) {
+            let progress = (vc.surfaceView.frame.minY - vc.originYOfSurface(for: .half)) / (vc.originYOfSurface(for: .tip) - vc.originYOfSurface(for: .half))
+            threeLayout.leftConstraint.constant = max(min(progress, 1.0), 0.0) * 8.0
+            threeLayout.rightConstraint.constant = -max(min(progress, 1.0), 0.0) * 8.0
+        } else {
+            threeLayout.leftConstraint.constant = 0.0
+            threeLayout.rightConstraint.constant = 0.0
+        }
+        vc.view.layoutIfNeeded()
     }
 
     func floatingPanelDidChangePosition(_ vc: FloatingPanelController) {
@@ -809,10 +821,29 @@ class TabBarContentViewController: UIViewController, FloatingPanelControllerDele
         }
          */
 
-        // Solution 2: Manipulate top constraint
+        /* Solution 2: Manipulate top constraint */
         assert(consoleVC.textViewTopConstraint != nil)
         consoleVC.textViewTopConstraint?.constant = (vc.position == .full) ? vc.layoutInsets.top : 17.0
         consoleVC.view.layoutIfNeeded()
+
+
+        if vc.position == .tip {
+            threeLayout.leftConstraint.constant = 8.0
+            threeLayout.rightConstraint.constant = -8.0
+        } else {
+            threeLayout.leftConstraint.constant = 0.0
+            threeLayout.rightConstraint.constant = 0.0
+        }
+        vc.view.layoutIfNeeded()
+    }
+
+    var offset: CGPoint = .zero
+    func floatingPanelWillBeginDecelerating(_ vc: FloatingPanelController) {
+        offset = consoleVC.textView.contentOffset
+    }
+
+    func floatingPanelDidEndDecelerating(_ vc: FloatingPanelController) {
+        consoleVC.textView.contentOffset = offset
     }
 
     @IBAction func close(sender: UIButton) {
@@ -874,21 +905,35 @@ class TwoTabBarPanelLayout: FloatingPanelLayout {
 }
 
 class ThreeTabBarPanelLayout: FloatingPanelFullScreenLayout {
+    var leftConstraint: NSLayoutConstraint!
+    var rightConstraint: NSLayoutConstraint!
+
     var initialPosition: FloatingPanelPosition {
         return .half
     }
     var supportedPositions: Set<FloatingPanelPosition> {
-        return [.full, .half]
+        return [.full, .half, .tip]
     }
     func insetFor(position: FloatingPanelPosition) -> CGFloat? {
         switch position {
         case .full: return 0.0
         case .half: return 261.0
+        case .tip: return 88.0
         default: return nil
         }
     }
     func backdropAlphaFor(position: FloatingPanelPosition) -> CGFloat {
         return 0.3
+    }
+    func prepareLayout(surfaceView: UIView, in view: UIView) -> [NSLayoutConstraint] {
+        if #available(iOS 11.0, *) {
+            leftConstraint = surfaceView.leftAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leftAnchor, constant: 0.0)
+            rightConstraint = surfaceView.rightAnchor.constraint(equalTo: view.safeAreaLayoutGuide.rightAnchor, constant: 0.0)
+        } else {
+            leftConstraint = surfaceView.leftAnchor.constraint(equalTo: view.leftAnchor, constant: 0.0)
+            rightConstraint = surfaceView.rightAnchor.constraint(equalTo: view.rightAnchor, constant: 0.0)
+        }
+        return [ leftConstraint, rightConstraint ]
     }
 }
 
