@@ -94,7 +94,8 @@ public class FloatingPanelDefaultBehavior: FloatingPanelBehavior {
     public func interactionAnimator(_ fpc: FloatingPanelController, to targetPosition: FloatingPanelPosition, with velocity: CGVector) -> UIViewPropertyAnimator {
         let timing = timeingCurve(with: velocity)
         let animator = UIViewPropertyAnimator(duration: 0, timingParameters: timing)
-        animator.isInterruptible = false
+        animator.isInterruptible = false // If true, it leads a buggy animation
+        animator.isManualHitTestingEnabled = true // Actually let the animator interruptible by the pan gesture of the controller without pausing or stopping it
         return animator
     }
 
